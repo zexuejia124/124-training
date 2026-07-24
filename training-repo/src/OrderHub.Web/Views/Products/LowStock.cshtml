@@ -1,0 +1,52 @@
+@model LowStockViewModel
+@{
+    ViewData["Title"] = "低庫存警示";
+}
+
+<h1 class="h3 mb-3">低庫存警示</h1>
+
+<form method="get" asp-action="LowStock" class="row g-2 align-items-start mb-4">
+    <div class="col-auto">
+        <label asp-for="Threshold" class="col-form-label">庫存門檻</label>
+    </div>
+    <div class="col-auto">
+        <input asp-for="Threshold" type="number" class="form-control" min="1" style="width: 120px" />
+        <span asp-validation-for="Threshold" class="text-danger"></span>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">查詢</button>
+    </div>
+</form>
+
+@if (Model.Items.Count == 0 && ViewData.ModelState.IsValid)
+{
+    <p class="text-muted">目前無低於門檻值的商品。</p>
+}
+else if (Model.Items.Count > 0)
+{
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>名稱</th>
+                <th class="text-end">現有庫存</th>
+                <th class="text-end">近 30 天售出</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr class="@(item.IsWarning ? "table-danger" : "")">
+                    <td>@item.Sku</td>
+                    <td>@item.Name</td>
+                    <td class="text-end">@item.StockQuantity</td>
+                    <td class="text-end">@item.SoldLast30Days</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
