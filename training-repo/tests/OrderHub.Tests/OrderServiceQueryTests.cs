@@ -41,6 +41,47 @@ public class OrderServiceQueryTests
     }
 
     [Fact]
+    public async Task GetOrders_Page1_ContainsNewestOrder()
+    {
+        // 回歸：修復前 Skip(page*pageSize) 在 page=1 會跳過第一頁，最新訂單找不到
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+
+        var baseTime = DateTime.UtcNow;
+        for (var i = 24; i >= 1; i--)
+            db.Orders.Add(new Order { CustomerId = customer.Id, Status = OrderStatus.Pending, CreatedAt = baseTime.AddMinutes(-i) });
+
+        var newestOrder = new Order { CustomerId = customer.Id, Status = OrderStatus.Pending, CreatedAt = baseTime };
+        db.Orders.Add(newestOrder);
+        db.SaveChanges();
+
+        var result = await service.GetOrdersAsync(1, 20, null);
+
+        Assert.Contains(result.Items, o => o.Id == newestOrder.Id);
+    }
+
+    [Fact]
+    public async Task GetOrders_LastPage_IsNotEmpty()
+    {
+        // 回歸：修復前 Skip(TotalPages*pageSize) 超出總筆數，最後一頁空白
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+
+        var baseTime = DateTime.UtcNow;
+        for (var i = 0; i < 40; i++)
+            db.Orders.Add(new Order { CustomerId = customer.Id, Status = OrderStatus.Pending, CreatedAt = baseTime.AddMinutes(-i) });
+        db.SaveChanges();
+
+        var firstResult = await service.GetOrdersAsync(1, 20, null);
+        var lastPage = firstResult.TotalPages;
+        var lastResult = await service.GetOrdersAsync(lastPage, 20, null);
+
+        Assert.NotEmpty(lastResult.Items);
+    }
+
+    [Fact]
     public async Task GetCustomerOrders_ReturnsOnlyThatCustomersOrders()
     {
         using var db = TestSetup.CreateContext();
