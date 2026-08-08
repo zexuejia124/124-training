@@ -150,6 +150,22 @@ if (customer.Tier == CustomerTier.Gold)
 4. **v** 獨立 commit（`d5ac3e5` — feat(mcp): 練習4 — 新增 cancel_order 工具並標注 ReadOnly）
 5. **設計觀察**：`Destructive = true` 是給 client 的 hint，不是強制授權；真正的狀態守衛在 `OrderService.CancelOrderAsync`——service 層才是信任邊界，不能把授權外包給 client 的標注行為
 
+練習 5
+
+1. **v** MCP Inspector Resources 分頁：讀到 `orderhub://discount-rules`，內容 `mimeType: text/markdown`，折扣三條（Standard/Silver/Gold）正確顯示
+2. **v** MCP Inspector Prompts 分頁：`low_stock_report` 列出且帶 `threshold` 參數（說明「庫存門檻，預設 10」），Get Prompt 展開後回傳 `role: "user"` 結構訊息
+3. **三者分工的思考（5c 第 3 點）**：
+
+   **折扣規則用 Resource 給 vs. 讓 agent 自己讀 `OrderService.cs`**
+   - 讀程式碼：agent 每次都要去翻 service 層原始碼，C# 語法對非工程師類 agent 不友善；規則散在實作細節裡不易找；改版時 agent 不會主動知道有變化
+   - Resource：agent 拿到的是「明確聲明過的背景知識」，語意清楚、格式人類可讀（Markdown）；規則改版只改一處（Resource 字串），不用去找所有可能讀了舊版資訊的地方
+
+   **Prompt 範本放在 server vs. 每個人自己打一段話**
+   - 自己打：同樣的採購需求每個業務打法不同，漏掉「按 SKU 彙總」或「附理由」的機率很高；無法版本控制；推廣新寫法要靠口耳相傳
+   - Server Prompt：全隊共用同一份範本，寫法統一；進 git，改版有歷史記錄；只改 server 一處，所有 client（/mcp__orderhub__low_stock_report）立刻拿到新版本
+
+4. **v** 獨立 commit（`12d59e4` — feat(mcp): 練習5 — 新增 Resource 與 Prompt）
+
 ---
 
 ## 附錄：值得留下的對話片段
