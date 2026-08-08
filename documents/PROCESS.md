@@ -116,6 +116,40 @@ if (customer.Tier == CustomerTier.Gold)
 2. **v** 改善了什麼：`CreateOrderAsync` 從 55 行拆成主流程 + `ValidateLines`（static，純驗證）+ `ApplyOrderItemsAsync`（async，副作用），每段職責單一；沒有改變的：對外行為、錯誤訊息字串、所有測試的斷言結果
 3. **v** 對照 diff 逐行確認：新 private 方法沒有改變任何邏輯，只是搬移與分群
 
+### 第二階段 — Custom MCP Server
+
+練習 0
+
+1. **v** agent 能自己開瀏覽器完成操作並回傳截圖（Playwright MCP：`claude mcp add playwright -- npx @playwright/mcp@latest`）
+2. **v** 對比活動 1 練習 2：當時人工在瀏覽器逐步重現 bug（開頁面 → 建訂單 → 翻頁確認）；現在一句話就讓 agent 自己跑完相同流程並截圖回來。差異：人工重現需要清楚描述每一步，agent 用 Playwright MCP 可以自己看 DOM、決定怎麼點——把「知道怎麼重現」這件事從人頭搬進工具
+
+練習 1
+
+1. **v** `dotnet build src/OrderHub.Mcp` 成功（0 errors）
+2. **v** 獨立 commit（`12751a9` — feat: 新增 OrderHub.Mcp 專案與 3 個唯讀工具）
+3. **地雷回憶**：`dotnet add package ModelContextProtocol --prerelease` 因企業內部 NuGet feed 回 401 失敗，改為直接在 .csproj 指定版本並用本機快取（`~/.nuget/packages`）restore；`dotnet new console` 預設產 net10.0，手動改成 net8.0 才和專案一致
+
+練習 2
+
+1. **v** 三個工具都列得出來，description、參數說明如所寫
+2. **v** 手動呼叫 `low_stock`（threshold=10），回傳結果與 `/Products` 頁面低庫存商品一致
+3. **v** `get_order` 呼叫不存在的 Id，回應「找不到訂單 999」，非 exception dump
+4. **地雷回憶**：Inspector SPA 只要 Playwright 瀏覽器換頁，proxy（port 6277）就斷線——解法是整段測試在同一個 Playwright session 裡做完，中途不離開 Inspector 頁面
+
+練習 3
+
+1. **v** `/mcp` 能看到 orderhub server 與三個工具
+2. **v** before/after 對照：關掉 MCP 問「哪些商品庫存低於 5？」agent 嘗試讀程式碼或繞道；開啟後一次 `low_stock(threshold=5)` 呼叫就答完
+3. **v** `.mcp.json` 進 git，獨立 commit（`12751a9`）
+
+練習 4
+
+1. **v** MCP Inspector：`cancel_order` 標注 `destructiveHint: true`、`idempotent: false`；`get_order` / `low_stock` / `customer_orders` 顯示 `readOnly: true`
+2. **v** 取消待處理訂單（#122，楊佩珊）成功：工具回傳「訂單 122 已取消，庫存已回補」
+3. **v** 對已取消訂單（#122）再次呼叫 `cancel_order`：回傳「取消失敗：狀態為 Cancelled 的訂單不可取消」，清楚的拒絕訊息，非 exception dump
+4. **v** 獨立 commit（`d5ac3e5` — feat(mcp): 練習4 — 新增 cancel_order 工具並標注 ReadOnly）
+5. **設計觀察**：`Destructive = true` 是給 client 的 hint，不是強制授權；真正的狀態守衛在 `OrderService.CancelOrderAsync`——service 層才是信任邊界，不能把授權外包給 client 的標注行為
+
 ---
 
 ## 附錄：值得留下的對話片段
