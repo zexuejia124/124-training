@@ -164,6 +164,20 @@ if (customer.Tier == CustomerTier.Gold)
    - 自己打：同樣的採購需求每個業務打法不同，漏掉「按 SKU 彙總」或「附理由」的機率很高；無法版本控制；推廣新寫法要靠口耳相傳
    - Server Prompt：全隊共用同一份範本，寫法統一；進 git，改版有歷史記錄；只改 server 一處，所有 client（/mcp__orderhub__low_stock_report）立刻拿到新版本
 
+   **實際執行後的補充觀察（2026-08-08 真實 run）：**
+
+   *Tool = 即時資料層，粒度是設計關鍵*
+   這次 agent 為查 5 個商品的近期需求，連續 call 了 30 次 `get_order`（逐筆拼湊）。沒有「依商品彙整訂單」的 aggregate tool，agent 只能自己迴圈。說明 Tool 粒度設計直接影響 token 消耗和延遲：若加一個 `orders_by_sku` tool，同樣的分析只需 5 次呼叫，而非 30 次。
+
+   *Prompt = 工作流程規格書，定義「做完了」的收斂標準*
+   Prompt 的三步結構（查低庫存 → 查近期訂單 → 輸出採購建議表：SKU/名稱/現有庫存/建議補貨量/理由）讓 agent 知道什麼叫完成。若只說「查庫存」，agent 可能只回傳一個 list，不會進一步分析趨勢、給補貨量。Prompt 把「業務對產出的期待格式」編進 server，不靠人逐次口頭說明。
+
+   *threshold 型別錯誤揭露 Prompt 驗證的邊界*
+   呼叫者傳入 `"run"`（非整數）作為 threshold，Prompt 本身不做型別驗證，agent 必須自行判斷並 fallback 到預設值 10。教訓：Prompt 的參數 JSON Schema 應盡量嚴格（標明 `type: integer`），讓 MCP client 在 UI 層就能拒絕錯誤輸入，不把型別衛生的責任全丟給 agent 的推理能力。
+
+   *Resource 補「靜態背景知識」，Tool 補「即時狀態」，兩者不可互換*
+   這次採購分析需要的是「現在庫存多少、近期有幾筆訂單」，Resource 裡的折扣規則對此沒有直接幫助。Resource 回答「規則是什麼」，Tool 回答「現況是什麼」——兩者定位正交，設計時不要把即時資料放進 Resource（會過時），也不要把靜態規則包成 Tool（每次都要走一次 HTTP）。
+
 4. **v** 獨立 commit（`12d59e4` — feat(mcp): 練習5 — 新增 Resource 與 Prompt）
 
 ---
